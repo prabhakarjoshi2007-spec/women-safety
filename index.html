@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Sentinel | Security Redefined</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -16,107 +16,119 @@
             --p-border: rgba(255, 255, 255, 0.1);
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; -webkit-tap-highlight-color: transparent; }
 
         body {
             background: var(--p-navy);
             background-image: radial-gradient(circle at 50% -20%, #1e1e2d 0%, #0a0a0f 80%);
-            color: #fff; height: 100vh; display: flex; justify-content: center;
-            align-items: center; overflow: hidden;
+            color: #fff; height: 100vh; width: 100vw;
+            display: flex; justify-content: center; align-items: center; overflow: hidden;
         }
 
+        /* PC vs Mobile Optimization */
+        .app-container { 
+            width: 100%; max-width: 450px; height: 100vh; 
+            display: none; flex-direction: column; padding: 20px;
+            position: relative; animation: fadeIn 0.5s ease;
+        }
+        
+        @media (min-width: 768px) {
+            .app-container { height: 90vh; border: 1px solid var(--p-border); border-radius: 40px; background: rgba(10, 10, 15, 0.8); backdrop-filter: blur(20px); }
+        }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Login Screen */
         #loginOverlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: var(--p-navy); z-index: 10000; display: flex;
-            flex-direction: column; justify-content: center; align-items: center; text-align: center;
+            position: fixed; inset: 0; background: var(--p-navy);
+            z-index: 10000; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; text-align: center; padding: 20px;
         }
         .login-btn {
-            background: #fff; color: #000; padding: 18px 35px; border-radius: 50px;
+            background: #fff; color: #000; padding: 18px 40px; border-radius: 50px;
             font-weight: 800; border: none; cursor: pointer; display: flex; align-items: center; gap: 12px;
-            font-size: 1rem; box-shadow: 0 10px 30px rgba(255,255,255,0.1);
+            font-size: 1rem; transition: 0.3s;
         }
+        .login-btn:active { transform: scale(0.95); }
 
-        .app-container { width: 90%; max-width: 420px; height: 95vh; display: none; flex-direction: column; overflow-y: auto; padding: 10px; position: relative; }
-        
-        /* Logout Style */
+        /* UI Elements */
         #logoutBtn {
-            position: absolute; top: 15px; right: 15px; background: var(--p-glass);
-            border: 1px solid var(--p-border); padding: 8px 12px; border-radius: 12px;
-            color: var(--p-red); cursor: pointer; font-size: 0.8rem; font-weight: 800;
+            position: absolute; top: 25px; right: 25px; background: var(--p-glass);
+            border: 1px solid var(--p-border); padding: 8px 15px; border-radius: 12px;
+            color: var(--p-red); cursor: pointer; font-size: 0.7rem; font-weight: 800; z-index: 10;
         }
 
-        .header { margin-bottom: 15px; display: flex; flex-direction: column; align-items: center; margin-top: 10px; }
+        .header { text-align: center; margin-bottom: 20px; }
         .logo-circle {
-            width: 60px; height: 60px; background: var(--p-glass); border: 1px solid var(--p-border);
-            border-radius: 20px; display: flex; align-items: center; justify-content: center;
-            margin-bottom: 10px;
+            width: 55px; height: 55px; background: var(--p-glass); border: 1px solid var(--p-border);
+            border-radius: 18px; display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 10px; color: var(--p-gold); font-size: 1.5rem;
         }
-        .logo-circle i { font-size: 1.8rem; color: var(--p-gold); }
         
-        h1 { font-size: 1.5rem; letter-spacing: 2px; font-weight: 800; }
-        .battery-tag { font-size: 0.65rem; font-weight: 800; background: var(--p-glass); padding: 4px 12px; border-radius: 12px; margin-bottom: 8px; border: 1px solid var(--p-border); }
+        .battery-tag { font-size: 0.6rem; font-weight: 800; background: var(--p-glass); padding: 5px 12px; border-radius: 20px; border: 1px solid var(--p-border); display: inline-block; margin-bottom: 5px; }
 
         .status-card {
-            background: var(--p-glass); border: 1px solid var(--p-border); padding: 15px;
-            border-radius: 20px; backdrop-filter: blur(25px); display: flex; align-items: center;
-            gap: 15px; margin-bottom: 15px;
+            background: var(--p-glass); border: 1px solid var(--p-border); padding: 15px 20px;
+            border-radius: 24px; display: flex; align-items: center; gap: 15px; margin-bottom: 15px;
         }
-        .status-card.active { border-color: var(--p-green); }
+        .pulse-dot { width: 10px; height: 10px; background: #444; border-radius: 50%; }
+        .active .pulse-dot { background: var(--p-green); box-shadow: 0 0 15px var(--p-green); animation: ripple 1.5s infinite; }
+        @keyframes ripple { 0% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.4); } 100% { box-shadow: 0 0 0 15px rgba(37, 211, 102, 0); } }
 
-        #map { width: 100%; min-height: 220px; border-radius: 20px; margin-bottom: 15px; border: 1px solid var(--p-border); z-index: 1; }
-
-        .action-area { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: auto; }
-        .secondary-btn {
-            background: var(--p-glass); border: 1px solid var(--p-border); padding: 15px;
-            border-radius: 20px; color: #fff; font-size: 0.75rem; font-weight: 700;
-            display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer;
-        }
+        #map { width: 100%; flex-grow: 1; border-radius: 28px; border: 1px solid var(--p-border); margin-bottom: 20px; z-index: 1; }
 
         .sos-btn {
-            width: 110px; height: 110px; background: linear-gradient(145deg, #ff4b4b, #8b0000);
-            border-radius: 50%; border: 4px solid rgba(255,255,255,0.15);
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            cursor: pointer; margin: 10px auto; box-shadow: 0 10px 30px rgba(255, 59, 59, 0.4);
-            transition: 0.3s;
+            width: 100%; padding: 20px; background: linear-gradient(135deg, #FF3B3B, #8b0000);
+            border-radius: 24px; border: none; color: #fff; cursor: pointer;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            box-shadow: 0 15px 35px rgba(255, 59, 59, 0.3); margin-bottom: 20px; transition: 0.3s;
         }
-        .sos-btn.active { background: #fff !important; border-color: var(--p-red); }
-        .sos-btn span { font-weight: 900; font-size: 1.5rem; }
+        .sos-btn.active { background: #fff; color: var(--p-red); }
+        .sos-btn span { font-size: 1.8rem; font-weight: 900; letter-spacing: 1px; }
+
+        .action-area { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .secondary-btn {
+            background: var(--p-glass); border: 1px solid var(--p-border); padding: 18px;
+            border-radius: 22px; color: #fff; font-size: 0.75rem; font-weight: 700;
+            display: flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer; transition: 0.2s;
+        }
+        .secondary-btn:active { background: rgba(255,255,255,0.1); }
     </style>
 </head>
 <body>
 
     <div id="loginOverlay">
-        <h1 style="margin-bottom: 25px; letter-spacing: 3px;">SENTINEL.</h1>
+        <div class="logo-circle" style="width:80px; height:80px; font-size: 2.5rem;"><i class="fas fa-shield-halved"></i></div>
+        <h1 style="margin-bottom: 10px; letter-spacing: 4px; font-weight: 800;">SENTINEL</h1>
+        <p style="color: #666; margin-bottom: 30px; font-size: 0.9rem;">High-Precision Safety Network</p>
         <button class="login-btn" id="googleLoginBtn">
             <i class="fab fa-google"></i> Sign in with Google
         </button>
     </div>
 
     <div class="app-container" id="mainApp">
-        <div id="logoutBtn" onclick="triggerLogout()"><i class="fas fa-power-off"></i> LOGOUT</div>
+        <div id="logoutBtn" onclick="triggerLogout()"><i class="fas fa-power-off"></i></div>
         
         <header class="header">
             <div id="batUI" class="battery-tag">BATTERY: --%</div>
-            <div class="logo-circle"><i class="fas fa-shield-halved"></i></div>
-            <h1 id="userNameUI">SENTINEL</h1>
+            <h1 id="userNameUI" style="font-size: 1.2rem;">SENTINEL</h1>
         </header>
 
         <div class="status-card" id="mainStatus">
-            <div style="text-align: left; width: 100%;">
-                <p id="statusText" style="font-weight: 700; color: #888; font-size: 0.9rem;">System Standby</p>
-            </div>
+            <div class="pulse-dot"></div>
+            <p id="statusText" style="font-weight: 700; color: #888; font-size: 0.85rem;">System: Standby</p>
         </div>
 
         <div id="map"></div>
 
-        <div class="sos-btn" id="sosBtn">
+        <button class="sos-btn" id="sosBtn">
             <span id="sosLabel">SOS</span>
-            <small style="font-weight:800; font-size: 0.5rem;">TAP IN DANGER</small>
-        </div>
+            <small style="font-weight:800; opacity: 0.8; font-size: 0.6rem;">HOLD IN EMERGENCY</small>
+        </button>
 
         <div class="action-area">
             <div class="secondary-btn" id="trackBtn"><i class="fas fa-satellite-dish"></i><span id="trackLabel">Go Live</span></div>
-            <div class="secondary-btn" id="shareBtn"><i class="fas fa-link"></i><span>Share Link</span></div>
+            <div class="secondary-btn" id="shareBtn"><i class="fas fa-share-nodes"></i><span>Share</span></div>
         </div>
     </div>
 
@@ -141,34 +153,32 @@
         const auth = getAuth(app);
         const provider = new GoogleAuthProvider();
 
-        let currentUser = null;
-        let watchId = null;
-        let map, userMarker;
+        let currentUser = null, watchId = null, map, userMarker;
 
-        function initMap() {
+        function initMap(lat = 30.2226, lng = 78.7845) {
             if(map) return;
-            map = L.map('map', { zoomControl: false }).setView([30.2226, 78.7845], 15);
+            map = L.map('map', { zoomControl: false, attributionControl: false }).setView([lat, lng], 16);
             L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
-            userMarker = L.circleMarker([30.2226, 78.7845], { radius: 8, color: '#FFB800', fillColor: '#FFB800', fillOpacity: 1 }).addTo(map);
+            userMarker = L.circleMarker([lat, lng], { radius: 9, color: '#fff', weight: 3, fillColor: '#FFB800', fillOpacity: 1 }).addTo(map);
         }
 
-        // --- PERSISTENCE & LOGIN ---
+        // Auth Logic
         document.getElementById('googleLoginBtn').addEventListener('click', () => {
-            setPersistence(auth, browserLocalPersistence).then(() => {
-                return signInWithRedirect(auth, provider);
-            });
+            setPersistence(auth, browserLocalPersistence).then(() => signInWithRedirect(auth, provider));
         });
 
-        getRedirectResult(auth).catch(e => console.error(e));
+        getRedirectResult(auth).catch(console.error);
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 currentUser = user;
                 document.getElementById('loginOverlay').style.display = 'none';
                 document.getElementById('mainApp').style.display = 'flex';
-                document.getElementById('userNameUI').innerText = user.displayName.split(' ')[0].toUpperCase();
-                initMap();
-                if (localStorage.getItem('sentinel_tracking')) startTracking();
+                document.getElementById('userNameUI').innerText = "HELLO, " + user.displayName.split(' ')[0].toUpperCase();
+                navigator.geolocation.getCurrentPosition(p => {
+                    initMap(p.coords.latitude, p.coords.longitude);
+                    if (localStorage.getItem('sentinel_tracking')) startTracking();
+                }, () => initMap());
                 initBattery();
             } else {
                 document.getElementById('loginOverlay').style.display = 'flex';
@@ -177,7 +187,7 @@
         });
 
         window.triggerLogout = () => {
-            if(confirm("Dhyan de: Logout karne par tracking band ho jayegi. Logout karein?")) {
+            if(confirm("Logout from Sentinel?")) {
                 localStorage.clear();
                 signOut(auth).then(() => location.reload());
             }
@@ -186,12 +196,13 @@
         function startTracking() {
             const UID = currentUser.email.replace(/\./g, '_');
             document.getElementById('mainStatus').classList.add('active');
-            document.getElementById('trackLabel').innerText = "Stop Radar";
+            document.getElementById('statusText').innerText = "LIVE RADAR ACTIVE";
+            document.getElementById('trackLabel').innerText = "Stop";
+
             watchId = navigator.geolocation.watchPosition((pos) => {
                 const { latitude, longitude } = pos.coords;
                 userMarker.setLatLng([latitude, longitude]);
-                map.panTo([latitude, longitude]);
-                document.getElementById('statusText').innerText = "Radar: Live Active";
+                map.flyTo([latitude, longitude], 17);
                 update(ref(db, 'live_safety/' + UID), { lat: latitude, lng: longitude, last_updated: Date.now() });
             }, null, { enableHighAccuracy: true });
         }
@@ -204,8 +215,7 @@
                     document.getElementById('batUI').innerText = "BATTERY: " + level;
                     if(currentUser) update(ref(db, 'live_safety/' + currentUser.email.replace(/\./g, '_')), { battery: level });
                 };
-                updateB();
-                b.onlevelchange = updateB;
+                updateB(); b.onlevelchange = updateB;
             }
         }
 
@@ -215,11 +225,14 @@
             if (isSOS) {
                 localStorage.removeItem('sentinel_sos');
                 document.getElementById('sosBtn').classList.remove('active');
+                document.getElementById('sosLabel').innerText = "SOS";
                 update(ref(db, 'live_safety/' + UID), { isSOS: false });
             } else {
                 localStorage.setItem('sentinel_sos', 'true');
                 document.getElementById('sosBtn').classList.add('active');
+                document.getElementById('sosLabel').innerText = "STOP";
                 update(ref(db, 'live_safety/' + UID), { isSOS: true, last_updated: Date.now() });
+                if (window.navigator.vibrate) window.navigator.vibrate([500, 200, 500]);
             }
         });
 
@@ -235,7 +248,7 @@
 
         document.getElementById('shareBtn').addEventListener('click', () => {
             const finalLink = `${window.location.origin}/track.html?id=${currentUser.email.replace(/\./g, '_')}`;
-            navigator.clipboard.writeText(finalLink).then(() => alert("Family Link Copied!"));
+            navigator.clipboard.writeText(finalLink).then(() => alert("Secure Link Copied!"));
         });
     </script>
 </body>
