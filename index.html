@@ -24,12 +24,10 @@
             align-items: center; overflow: hidden; transition: background 0.3s ease;
         }
 
-        /* Login Screen */
         #loginOverlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: var(--p-navy); z-index: 10000; display: flex;
-            flex-direction: column; justify-content: center; align-items: center;
-            text-align: center;
+            flex-direction: column; justify-content: center; align-items: center; text-align: center;
         }
         .login-btn {
             background: #fff; color: #000; padding: 18px 35px; border-radius: 50px;
@@ -61,7 +59,6 @@
         .pulse-dot { width: 12px; height: 12px; background: #444; border-radius: 50%; position: relative; }
         .active .pulse-dot { background: var(--p-green); box-shadow: 0 0 15px var(--p-green); }
         .active .pulse-dot::after { content: ''; position: absolute; width: 100%; height: 100%; background: var(--p-green); border-radius: 50%; animation: ripple 1.8s infinite; }
-        @keyframes ripple { 0% { transform: scale(1); opacity: 0.8; } 100% { transform: scale(3.5); opacity: 0; } }
 
         .sos-wrapper { position: relative; width: 180px; height: 180px; margin: 0 auto 30px; }
         .sos-btn {
@@ -73,15 +70,12 @@
         }
         .sos-btn.active { background: #fff !important; border-color: var(--p-red); }
         .sos-btn.active span { color: var(--p-red); }
-        .sos-btn:active { transform: scale(0.92); }
-        .sos-btn span { font-weight: 900; font-size: 1.8rem; pointer-events: none; }
 
         #smsFallback {
             display: none; background: #fff; color: #000; padding: 15px;
             border-radius: 20px; font-weight: 800; margin-bottom: 20px;
             animation: slideUp 0.3s ease; cursor: pointer; border: none; width: 100%; font-size: 0.8rem;
         }
-        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { bottom: 0; opacity: 1; } }
 
         .action-area { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
         .secondary-btn {
@@ -99,7 +93,7 @@
         <button class="login-btn" id="googleLoginBtn">
             <i class="fab fa-google"></i> Sign in with Google
         </button>
-        <p style="color: #555; margin-top: 20px; font-size: 0.7rem;">Secure Authentication Required</p>
+        <p id="authNotice" style="color: #555; margin-top: 20px; font-size: 0.7rem;">Verified Identity Required</p>
     </div>
 
     <div class="app-container" id="mainApp">
@@ -113,7 +107,7 @@
         <div class="status-card" id="mainStatus">
             <div class="pulse-dot"></div>
             <div style="text-align: left;">
-                <p style="font-size: 0.6rem; color: #777; font-weight: 800;">RADAR STATUS</p>
+                <p style="font-size: 0.6rem; color: #777; font-weight: 800;">PROTECTION STATUS</p>
                 <p id="statusText" style="font-weight: 700; color: #888; font-size: 1rem;">Standby Mode</p>
             </div>
         </div>
@@ -138,7 +132,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
         import { getDatabase, ref, update } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-database.js";
-        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+        import { getAuth, signInWithRedirect, getRedirectResult, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAWPquWZD8gRQTj8iEOD5LRGyTy1-K_K9s",
@@ -159,9 +153,15 @@
         let watchId = null;
         let lastKnownCoords = { lat: 30.2226, lng: 78.7845 };
 
-        // --- AUTH CONTROL ---
+        // --- AUTH CONTROL (Redirect for Mobile) ---
         document.getElementById('googleLoginBtn').addEventListener('click', () => {
-            signInWithPopup(auth, provider).catch(e => alert("Login Failed: " + e.message));
+            document.getElementById('authNotice').innerText = "Redirecting to Google...";
+            signInWithRedirect(auth, provider);
+        });
+
+        // Handle Redirect Result
+        getRedirectResult(auth).catch((error) => {
+            console.error("Auth Redirect Error:", error);
         });
 
         onAuthStateChanged(auth, (user) => {
@@ -228,16 +228,12 @@
                 localStorage.removeItem('sentinel_sos');
                 sosBtn.classList.remove('active');
                 document.getElementById('sosLabel').innerText = "SOS";
-                document.getElementById('sosSub').innerText = "TAP IN DANGER";
                 document.body.style.background = "var(--p-navy)";
                 update(ref(db, 'live_safety/' + UID), { isSOS: false });
             } else {
                 localStorage.setItem('sentinel_sos', 'true');
                 sosBtn.classList.add('active');
                 document.getElementById('sosLabel').innerText = "STOP";
-                document.getElementById('sosSub').innerText = "TAP TO CANCEL";
-                document.body.style.background = "#450000";
-                
                 update(ref(db, 'live_safety/' + UID), { 
                     isSOS: true, 
                     last_updated: Date.now(),
@@ -245,13 +241,12 @@
                 }).catch(() => {
                     document.getElementById('smsFallback').style.display = "block";
                 });
-                
                 if (window.navigator.vibrate) window.navigator.vibrate([300, 100, 300]);
             }
         });
 
         window.sendOfflineSMS = () => {
-            const familyPhone = "911234567890"; // Family number here
+            const familyPhone = "911234567890";
             const msg = `EMERGENCY! I need help. Last Location: https://www.google.com/maps?q=${lastKnownCoords.lat},${lastKnownCoords.lng}`;
             window.location.href = `sms:${familyPhone}?body=${encodeURIComponent(msg)}`;
         };
