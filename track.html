@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sentinel Portal | Live Tracking</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg: #050505; --card: #121212; --accent: #CCFF00; --sos: #FF3333; --border: rgba(255, 255, 255, 0.08); --text-dim: #888;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
+        body { background: var(--bg); color: #fff; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+        
+        /* Start Screen - Heart Attack Prevention */
+        #gatekeeper {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg); z-index: 10001; display: flex;
+            flex-direction: column; justify-content: center; align-items: center;
+            text-align: center; transition: 0.5s;
+        }
+        .monitor-btn {
+            background: var(--accent); color: #000; padding: 20px 40px;
+            border-radius: 50px; font-weight: 800; border: none; cursor: pointer;
+            font-size: 1.1rem; box-shadow: 0 10px 30px rgba(204, 255, 0, 0.2);
+        }
+
+        #map { flex-grow: 1; width: 100%; height: 100%; z-index: 1; outline: none; }
+        
+        #sosOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; border: 15px solid var(--sos); z-index: 9999; display: none; pointer-events: none; animation: emergencyPulse 0.8s infinite; }
+        @keyframes emergencyPulse { 0% { opacity: 1; } 50% { opacity: 0.2; } }
+
+        .portal-panel { position: absolute; bottom: 25px; left: 50%; transform: translateX(-50%); width: 92%; max-width: 420px; background: rgba(18, 18, 18, 0.85); backdrop-filter: blur(25px); border: 1px solid var(--border); border-radius: 32px; padding: 24px; z-index: 1000; box-shadow: 0 25px 60px rgba(0,0,0,0.8); }
+        
+        .user-profile { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .u-info h2 { font-size: 1.3rem; font-weight: 800; }
+        
+        .status-tag { font-size: 0.65rem; padding: 4px 10px; border-radius: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
+        .tag-online { background: rgba(40, 167, 69, 0.2); color: #28a745; }
+        .tag-offline { background: rgba(220, 53, 69, 0.2); color: #dc3545; animation: blink 1s infinite; }
+        @keyframes blink { 50% { opacity: 0.4; } }
+
+        .live-address-box { background: rgba(255,255,255,0.03); border: 1px solid var(--border); padding: 12px 16px; border-radius: 18px; margin-bottom: 20px; }
+        .live-address-box p { font-size: 0.8rem; color: #ddd; font-weight: 500; }
+        
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .stat-card { background: #000; padding: 16px; border-radius: 22px; border: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+        .stat-card i { font-size: 1.1rem; color: var(--accent); }
+        
+        .emergency-btn { width: 100%; margin-top: 15px; padding: 16px; border-radius: 20px; border: none; background: var(--sos); color: #fff; font-weight: 800; display: none; align-items: center; justify-content: center; gap: 10px; cursor: pointer; }
+        .reset-sos-btn { width: 100%; margin-top: 10px; padding: 12px; border-radius: 15px; border: 1px solid var(--border); background: transparent; color: #888; font-size: 0.7rem; font-weight: 800; display: none; cursor: pointer; }
+        
+        .sync-tag { position: absolute; top: -10px; right: 30px; background: #000; border: 1px solid var(--border); padding: 4px 12px; border-radius: 10px; font-size: 0.6rem; color: var(--text-dim); }
+    </style>
+</head>
+<body onclick="enableAudio()">
+    <div id="gatekeeper">
+        <h1 style="margin-bottom: 15px; letter-spacing: 2px;">SENTINEL SECURE</h1>
+        <p style="color: #666; margin-bottom: 30px; font-size: 0.9rem;">Tap to establish encrypted connection</p>
+        <button class="monitor-btn" onclick="unlockPortal()">START MONITORING</button>
+    </div>
+
+    <div id="sosOverlay"></div>
+    <div id="map"></div>
+
+    <audio id="sirenAudio" src="siren.mp3" preload="auto" loop></audio>
+
+    <div class="portal-panel">
+        <div class="sync-tag" id="lastSync">CONNECTING...</div>
+        
+        <div class="user-profile">
+            <div class="u-info">
+                <div id="netStatusTag" class="status-tag tag-online">Live Now</div>
+                <h2 id="userName" style="margin-top: 5px;">Tracking: Prabhakar</h2>
+            </div>
+            <div id="sosBadge" style="display:none; background: var(--sos); color: white; padding: 6px 14px; border-radius: 12px; font-size: 0.7rem; font-weight: 900;">SOS ACTIVE</div>
+        </div>
+
+        <div class="live-address-box">
+            <p id="addrText"><i class="fas fa-location-dot" style="margin-right: 8px; color: var(--accent);"></i>Checking block level details...</p>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <i class="fas fa-battery-three-quarters"></i>
+                <div><span style="font-size: 0.6rem; color: #666; display: block;">Battery</span><h4 id="batVal">--%</h4></div>
+            </div>
+            <div class="stat-card">
+                <i class="fas fa-person-running"></i>
+                <div><span style="font-size: 0.6rem; color: #666; display: block;">Movement</span><h4 id="moveStatus">--</h4></div>
+            </div>
+        </div>
+
+        <button class="emergency-btn" id="sosAction" onclick="shareEmergency()">
+            <i class="fab fa-whatsapp"></i> BROADCAST SOS LINK
+        </button>
+        <button class="reset-sos-btn" id="resetSos" onclick="resetSOSFromFamily()">
+            MARK AS SAFE (STOP ALARM)
+        </button>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+        import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAWPquWZD8gRQTj8iEOD5LRGyTy1-K_K9s",
+            authDomain: "women-safety-57e5a.firebaseapp.com",
+            databaseURL: "https://women-safety-57e5a-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "women-safety-57e5a",
+            storageBucket: "women-safety-57e5a.firebasestorage.app",
+            messagingSenderId: "690896893678",
+            appId: "1:690896893678:web:c9c5b5b8435b0150ada5ff"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const urlParams = new URLSearchParams(window.location.search);
+        const USER_ID = urlParams.get('id') || "PRABHAKAR_001";
+
+        var map = L.map('map', { zoomControl: false }).setView([30.2226, 78.7845], 18);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 20 }).addTo(map);
+        var userMarker = L.circleMarker([0,0], { radius: 10, fillColor: "#007AFF", color: "#fff", weight: 3, fillOpacity: 1 }).addTo(map);
+
+        const siren = document.getElementById('sirenAudio');
+        let lastUpdateTime = Date.now();
+        let audioAllowed = false;
+        let isUnlocked = false;
+
+        // Unlock Logic to enable sound & view
+        window.unlockPortal = () => {
+            isUnlocked = true;
+            audioAllowed = true;
+            document.getElementById('gatekeeper').style.opacity = '0';
+            setTimeout(() => { document.getElementById('gatekeeper').style.display = 'none'; }, 500);
+            siren.play().then(() => { siren.pause(); siren.currentTime = 0; });
+        };
+
+        window.enableAudio = () => { if(isUnlocked) audioAllowed = true; };
+
+        // Network Watchdog
+        setInterval(() => {
+            if(!isUnlocked) return;
+            const diff = (Date.now() - lastUpdateTime) / 1000;
+            const tag = document.getElementById('netStatusTag');
+            if(diff > 35) {
+                tag.innerText = "Network Lost";
+                tag.className = "status-tag tag-offline";
+            } else {
+                tag.innerText = "Live Now";
+                tag.className = "status-tag tag-online";
+            }
+        }, 5000);
+
+        onValue(ref(db, 'live_safety/' + USER_ID), (snapshot) => {
+            const data = snapshot.val();
+            if(data && isUnlocked) {
+                const now = Date.now();
+                lastUpdateTime = data.last_updated;
+                const pos = [data.lat, data.lng];
+                userMarker.setLatLng(pos);
+                map.flyTo(pos, 18);
+
+                document.getElementById('batVal').innerText = (data.battery || "0%");
+                document.getElementById('moveStatus').innerText = (data.status || "Stationary");
+                document.getElementById('lastSync').innerText = "SYNC: " + new Date(data.last_updated).toLocaleTimeString();
+
+                // Fresh check: 10 minutes filter
+                const isFreshData = (now - data.last_updated) < 600000;
+
+                if(data.isSOS && isFreshData) {
+                    document.getElementById('sosOverlay').style.display = 'block';
+                    document.getElementById('sosBadge').style.display = 'block';
+                    document.getElementById('sosAction').style.display = 'flex';
+                    document.getElementById('resetSos').style.display = 'block';
+                    if(audioAllowed) siren.play().catch(e => {});
+                } else {
+                    // STOP LOGIC: If isSOS becomes false, this block runs
+                    document.getElementById('sosOverlay').style.display = 'none';
+                    document.getElementById('sosBadge').style.display = 'none';
+                    document.getElementById('sosAction').style.display = 'none';
+                    document.getElementById('resetSos').style.display = 'none';
+                    siren.pause();
+                    siren.currentTime = 0;
+                }
+            }
+        });
+
+        // Family Side Stop Siren Button
+        window.resetSOSFromFamily = () => {
+            if(confirm("Mark user as safe? This will stop the siren immediately.")) {
+                update(ref(db, 'live_safety/' + USER_ID), { isSOS: false });
+            }
+        };
+
+        window.shareEmergency = () => {
+            const waUrl = `https://wa.me/?text=EMERGENCY! Track Prabhakar Live: ${encodeURIComponent(window.location.href)}`;
+            window.open(waUrl, '_blank');
+        };
+    </script>
+</body>
+</html>

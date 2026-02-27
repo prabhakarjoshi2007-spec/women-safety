@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentinel | Security Redefined</title>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --p-navy: #0A0A0F; --p-gold: #FFB800; --p-red: #FF3B3B;
+            --p-green: #25D366; --p-glass: rgba(255, 255, 255, 0.05);
+            --p-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
+
+        body {
+            background: var(--p-navy);
+            background-image: radial-gradient(circle at 50% -20%, #1e1e2d 0%, #0a0a0f 80%);
+            color: #fff; height: 100vh; display: flex; justify-content: center;
+            align-items: center; overflow: hidden; transition: background 0.3s ease;
+        }
+
+        /* Login Screen */
+        #loginOverlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--p-navy); z-index: 10000; display: flex;
+            flex-direction: column; justify-content: center; align-items: center;
+            text-align: center;
+        }
+        .login-btn {
+            background: #fff; color: #000; padding: 18px 35px; border-radius: 50px;
+            font-weight: 800; border: none; cursor: pointer; display: flex; align-items: center; gap: 12px;
+            font-size: 1rem; box-shadow: 0 10px 30px rgba(255,255,255,0.1);
+        }
+
+        .app-container { width: 90%; max-width: 400px; text-align: center; animation: fadeIn 0.8s ease-out; display: none; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+        .header { margin-bottom: 20px; display: flex; flex-direction: column; align-items: center; }
+        .logo-circle {
+            width: 70px; height: 70px; background: var(--p-glass); border: 1px solid var(--p-border);
+            border-radius: 20px; display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+        }
+        .logo-circle i { font-size: 2.2rem; color: var(--p-gold); }
+        
+        h1 { font-size: 1.8rem; letter-spacing: 2px; font-weight: 800; }
+        .battery-tag { font-size: 0.7rem; font-weight: 800; background: var(--p-glass); padding: 5px 12px; border-radius: 12px; margin-bottom: 10px; border: 1px solid var(--p-border); }
+
+        .status-card {
+            background: var(--p-glass); border: 1px solid var(--p-border); padding: 20px;
+            border-radius: 25px; backdrop-filter: blur(25px); display: flex; align-items: center;
+            gap: 15px; margin-bottom: 25px; transition: 0.4s;
+        }
+        .status-card.active { border-color: var(--p-green); }
+
+        .pulse-dot { width: 12px; height: 12px; background: #444; border-radius: 50%; position: relative; }
+        .active .pulse-dot { background: var(--p-green); box-shadow: 0 0 15px var(--p-green); }
+        .active .pulse-dot::after { content: ''; position: absolute; width: 100%; height: 100%; background: var(--p-green); border-radius: 50%; animation: ripple 1.8s infinite; }
+        @keyframes ripple { 0% { transform: scale(1); opacity: 0.8; } 100% { transform: scale(3.5); opacity: 0; } }
+
+        .sos-wrapper { position: relative; width: 180px; height: 180px; margin: 0 auto 30px; }
+        .sos-btn {
+            width: 100%; height: 100%; background: linear-gradient(145deg, #ff4b4b, #8b0000);
+            border-radius: 50%; border: 6px solid rgba(255,255,255,0.15);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            cursor: pointer; position: relative; z-index: 5; box-shadow: 0 20px 40px rgba(255, 59, 59, 0.4);
+            transition: 0.3s;
+        }
+        .sos-btn.active { background: #fff !important; border-color: var(--p-red); }
+        .sos-btn.active span { color: var(--p-red); }
+        .sos-btn:active { transform: scale(0.92); }
+        .sos-btn span { font-weight: 900; font-size: 1.8rem; pointer-events: none; }
+
+        #smsFallback {
+            display: none; background: #fff; color: #000; padding: 15px;
+            border-radius: 20px; font-weight: 800; margin-bottom: 20px;
+            animation: slideUp 0.3s ease; cursor: pointer; border: none; width: 100%; font-size: 0.8rem;
+        }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { bottom: 0; opacity: 1; } }
+
+        .action-area { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .secondary-btn {
+            background: var(--p-glass); border: 1px solid var(--p-border); padding: 15px;
+            border-radius: 20px; color: #fff; font-size: 0.8rem; font-weight: 700;
+            display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer;
+        }
+        .secondary-btn i { font-size: 1.2rem; color: var(--p-gold); }
+    </style>
+</head>
+<body>
+
+    <div id="loginOverlay">
+        <h1 style="margin-bottom: 25px; letter-spacing: 3px;">SENTINEL.</h1>
+        <button class="login-btn" id="googleLoginBtn">
+            <i class="fab fa-google"></i> Sign in with Google
+        </button>
+        <p style="color: #555; margin-top: 20px; font-size: 0.7rem;">Secure Authentication Required</p>
+    </div>
+
+    <div class="app-container" id="mainApp">
+        <header class="header">
+            <div id="batUI" class="battery-tag">BATTERY: --%</div>
+            <div class="logo-circle"><i class="fas fa-shield-halved"></i></div>
+            <h1 id="userNameUI">SENTINEL</h1>
+            <p id="netIndicator" style="color: var(--p-green); font-size: 0.65rem; font-weight: 800;">ONLINE MODE</p>
+        </header>
+
+        <div class="status-card" id="mainStatus">
+            <div class="pulse-dot"></div>
+            <div style="text-align: left;">
+                <p style="font-size: 0.6rem; color: #777; font-weight: 800;">RADAR STATUS</p>
+                <p id="statusText" style="font-weight: 700; color: #888; font-size: 1rem;">Standby Mode</p>
+            </div>
+        </div>
+
+        <div class="sos-wrapper">
+            <div class="sos-btn" id="sosBtn">
+                <span id="sosLabel">SOS</span>
+                <small id="sosSub" style="font-weight:800;">TAP IN DANGER</small>
+            </div>
+        </div>
+
+        <button id="smsFallback" onclick="sendOfflineSMS()">
+            <i class="fas fa-comment-sms"></i> NETWORK ERROR? SEND SMS SOS
+        </button>
+
+        <div class="action-area">
+            <div class="secondary-btn" id="trackBtn"><i class="fas fa-satellite-dish"></i><span id="trackLabel">Go Live</span></div>
+            <div class="secondary-btn" id="shareBtn"><i class="fas fa-link"></i><span>Share Link</span></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+        import { getDatabase, ref, update } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-database.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAWPquWZD8gRQTj8iEOD5LRGyTy1-K_K9s",
+            authDomain: "women-safety-57e5a.firebaseapp.com",
+            databaseURL: "https://women-safety-57e5a-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "women-safety-57e5a",
+            storageBucket: "women-safety-57e5a.firebasestorage.app",
+            messagingSenderId: "690896893678",
+            appId: "1:690896893678:web:c9c5b5b8435b0150ada5ff"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const auth = getAuth(app);
+        const provider = new GoogleAuthProvider();
+
+        let currentUser = null;
+        let watchId = null;
+        let lastKnownCoords = { lat: 30.2226, lng: 78.7845 };
+
+        // --- AUTH CONTROL ---
+        document.getElementById('googleLoginBtn').addEventListener('click', () => {
+            signInWithPopup(auth, provider).catch(e => alert("Login Failed: " + e.message));
+        });
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                document.getElementById('loginOverlay').style.display = 'none';
+                document.getElementById('mainApp').style.display = 'block';
+                document.getElementById('userNameUI').innerText = user.displayName.split(' ')[0].toUpperCase();
+                
+                if (localStorage.getItem('sentinel_tracking')) startTracking();
+                initBattery();
+            } else {
+                document.getElementById('loginOverlay').style.display = 'flex';
+                document.getElementById('mainApp').style.display = 'none';
+            }
+        });
+
+        async function initBattery() {
+            if ('getBattery' in navigator) {
+                const battery = await navigator.getBattery();
+                const updateBat = () => {
+                    const level = Math.floor(battery.level * 100) + "%";
+                    document.getElementById('batUI').innerText = "BATTERY: " + level;
+                    if(currentUser) {
+                        const UID = currentUser.email.replace(/\./g, '_');
+                        update(ref(db, 'live_safety/' + UID), { battery: level });
+                    }
+                };
+                updateBat();
+                battery.onlevelchange = () => updateBat();
+            }
+        }
+
+        function startTracking() {
+            if(!currentUser) return;
+            const UID = currentUser.email.replace(/\./g, '_');
+            document.getElementById('mainStatus').classList.add('active');
+            document.getElementById('statusText').innerText = "RADAR ACTIVE";
+            document.getElementById('trackLabel').innerText = "Stop Radar";
+
+            watchId = navigator.geolocation.watchPosition((pos) => {
+                lastKnownCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                const speed = (pos.coords.speed || 0) * 3.6;
+                const status = speed > 1.2 ? "Moving" : "Stationary";
+                document.getElementById('statusText').innerText = "Live: " + status;
+
+                update(ref(db, 'live_safety/' + UID), {
+                    lat: lastKnownCoords.lat,
+                    lng: lastKnownCoords.lng,
+                    accuracy: Math.round(pos.coords.accuracy) + "m",
+                    status: status,
+                    last_updated: Date.now()
+                });
+            }, null, { enableHighAccuracy: true, maximumAge: 0 });
+        }
+
+        const sosBtn = document.getElementById('sosBtn');
+        sosBtn.addEventListener('click', () => {
+            if(!currentUser) return;
+            const UID = currentUser.email.replace(/\./g, '_');
+            const isEmergency = localStorage.getItem('sentinel_sos') === 'true';
+            
+            if (isEmergency) {
+                localStorage.removeItem('sentinel_sos');
+                sosBtn.classList.remove('active');
+                document.getElementById('sosLabel').innerText = "SOS";
+                document.getElementById('sosSub').innerText = "TAP IN DANGER";
+                document.body.style.background = "var(--p-navy)";
+                update(ref(db, 'live_safety/' + UID), { isSOS: false });
+            } else {
+                localStorage.setItem('sentinel_sos', 'true');
+                sosBtn.classList.add('active');
+                document.getElementById('sosLabel').innerText = "STOP";
+                document.getElementById('sosSub').innerText = "TAP TO CANCEL";
+                document.body.style.background = "#450000";
+                
+                update(ref(db, 'live_safety/' + UID), { 
+                    isSOS: true, 
+                    last_updated: Date.now(),
+                    name: currentUser.displayName
+                }).catch(() => {
+                    document.getElementById('smsFallback').style.display = "block";
+                });
+                
+                if (window.navigator.vibrate) window.navigator.vibrate([300, 100, 300]);
+            }
+        });
+
+        window.sendOfflineSMS = () => {
+            const familyPhone = "911234567890"; // Family number here
+            const msg = `EMERGENCY! I need help. Last Location: https://www.google.com/maps?q=${lastKnownCoords.lat},${lastKnownCoords.lng}`;
+            window.location.href = `sms:${familyPhone}?body=${encodeURIComponent(msg)}`;
+        };
+
+        document.getElementById('trackBtn').addEventListener('click', () => {
+            if (localStorage.getItem('sentinel_tracking')) {
+                localStorage.removeItem('sentinel_tracking');
+                location.reload();
+            } else {
+                localStorage.setItem('sentinel_tracking', 'true');
+                startTracking();
+            }
+        });
+
+        document.getElementById('shareBtn').addEventListener('click', () => {
+            if(!currentUser) return;
+            const UID = currentUser.email.replace(/\./g, '_');
+            const link = window.location.href.replace('index.html', 'track.html') + "?id=" + UID;
+            navigator.clipboard.writeText(link);
+            alert("Family Link Copied!");
+        });
+    </script>
+</body>
+</html>
