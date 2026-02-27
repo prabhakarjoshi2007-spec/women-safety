@@ -58,9 +58,10 @@
     </style>
 </head>
 <body onclick="enableAudio()">
+
     <div id="gatekeeper">
-        <h1 style="margin-bottom: 15px; letter-spacing: 2px;">SENTINEL SECURE</h1>
-        <p style="color: #666; margin-bottom: 30px; font-size: 0.9rem;">Tap to establish encrypted connection</p>
+        <h1 style="margin-bottom: 15px; letter-spacing: 2px;">SENTINEL PORTAL</h1>
+        <p style="color: #666; margin-bottom: 30px; font-size: 0.9rem;">Tap to establish secure connection and enable audio alerts</p>
         <button class="monitor-btn" onclick="unlockPortal()">START MONITORING</button>
     </div>
 
@@ -74,14 +75,14 @@
         
         <div class="user-profile">
             <div class="u-info">
-                <div id="netStatusTag" class="status-tag tag-online">Live Now</div>
-                <h2 id="userName" style="margin-top: 5px;">Tracking: Prabhakar</h2>
+                <div id="netStatusTag" class="status-tag tag-online">Initializing</div>
+                <h2 id="userName" style="margin-top: 5px;">Secure Track</h2>
             </div>
             <div id="sosBadge" style="display:none; background: var(--sos); color: white; padding: 6px 14px; border-radius: 12px; font-size: 0.7rem; font-weight: 900;">SOS ACTIVE</div>
         </div>
 
         <div class="live-address-box">
-            <p id="addrText"><i class="fas fa-location-dot" style="margin-right: 8px; color: var(--accent);"></i>Checking block level details...</p>
+            <p id="addrText"><i class="fas fa-location-dot" style="margin-right: 8px; color: var(--accent);"></i>Connecting to live feed...</p>
         </div>
 
         <div class="stats-grid">
@@ -132,13 +133,13 @@
         let audioAllowed = false;
         let isUnlocked = false;
 
-        // Unlock Logic to enable sound & view
+        // Unlock Portal Logic
         window.unlockPortal = () => {
             isUnlocked = true;
             audioAllowed = true;
             document.getElementById('gatekeeper').style.opacity = '0';
             setTimeout(() => { document.getElementById('gatekeeper').style.display = 'none'; }, 500);
-            siren.play().then(() => { siren.pause(); siren.currentTime = 0; });
+            siren.play().then(() => { siren.pause(); siren.currentTime = 0; }).catch(e => console.log("Audio Init Wait"));
         };
 
         window.enableAudio = () => { if(isUnlocked) audioAllowed = true; };
@@ -148,7 +149,7 @@
             if(!isUnlocked) return;
             const diff = (Date.now() - lastUpdateTime) / 1000;
             const tag = document.getElementById('netStatusTag');
-            if(diff > 35) {
+            if(diff > 45) {
                 tag.innerText = "Network Lost";
                 tag.className = "status-tag tag-offline";
             } else {
@@ -167,20 +168,18 @@
                 map.flyTo(pos, 18);
 
                 document.getElementById('batVal').innerText = (data.battery || "0%");
-                document.getElementById('moveStatus').innerText = (data.status || "Stationary");
+                document.getElementById('moveStatus').innerText = (data.status || "Live");
                 document.getElementById('lastSync').innerText = "SYNC: " + new Date(data.last_updated).toLocaleTimeString();
 
-                // Fresh check: 10 minutes filter
-                const isFreshData = (now - data.last_updated) < 600000;
+                const isDataFresh = (now - data.last_updated) < 900000; // 15 mins filter
 
-                if(data.isSOS && isFreshData) {
+                if(data.isSOS && isDataFresh) {
                     document.getElementById('sosOverlay').style.display = 'block';
                     document.getElementById('sosBadge').style.display = 'block';
                     document.getElementById('sosAction').style.display = 'flex';
                     document.getElementById('resetSos').style.display = 'block';
                     if(audioAllowed) siren.play().catch(e => {});
                 } else {
-                    // STOP LOGIC: If isSOS becomes false, this block runs
                     document.getElementById('sosOverlay').style.display = 'none';
                     document.getElementById('sosBadge').style.display = 'none';
                     document.getElementById('sosAction').style.display = 'none';
@@ -191,7 +190,6 @@
             }
         });
 
-        // Family Side Stop Siren Button
         window.resetSOSFromFamily = () => {
             if(confirm("Mark user as safe? This will stop the siren immediately.")) {
                 update(ref(db, 'live_safety/' + USER_ID), { isSOS: false });
@@ -199,7 +197,7 @@
         };
 
         window.shareEmergency = () => {
-            const waUrl = `https://wa.me/?text=EMERGENCY! Track Prabhakar Live: ${encodeURIComponent(window.location.href)}`;
+            const waUrl = `https://wa.me/?text=EMERGENCY! Track Live: ${encodeURIComponent(window.location.href)}`;
             window.open(waUrl, '_blank');
         };
     </script>
