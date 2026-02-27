@@ -40,7 +40,7 @@
 
         .app-container { 
             width: 100%; max-width: 450px; height: 100dvh; 
-            display: none; flex-direction: column; padding: 12px;
+            display: none; flex-direction: column; padding: 15px;
             position: relative; gap: 8px;
         }
 
@@ -73,12 +73,12 @@
 
     <div id="appLoader">
         <div class="spinner"></div>
-        <p style="margin-top: 15px; font-size: 0.8rem; color: #666;">Verifying Session...</p>
+        <p style="margin-top: 15px; font-size: 0.8rem; color: #666;">Verifying System...</p>
     </div>
 
     <div id="loginOverlay">
         <div style="font-size: 3rem; color: var(--p-gold); margin-bottom: 15px;"><i class="fas fa-shield-halved"></i></div>
-        <h1 style="letter-spacing: 4px; font-weight: 800;">SENTINEL</h1>
+        <h1 style="letter-spacing: 4px; font-weight: 800; color: #fff;">SENTINEL</h1>
         <button id="googleLoginBtn" style="background:#fff; color:#000; padding:18px 45px; border-radius:50px; font-weight:800; border:none; cursor:pointer; margin-top: 20px;">
             <i class="fab fa-google"></i> Sign in with Google
         </button>
@@ -87,7 +87,7 @@
     <div class="app-container" id="mainApp">
         <div class="top-row">
             <div id="batUI" class="battery-tag">BATTERY: --%</div>
-            <h2 id="userNameUI" style="font-size: 0.9rem; font-weight: 800;">SENTINEL</h2>
+            <h2 id="userNameUI" style="font-size: 0.8rem; font-weight: 800;">SENTINEL</h2>
             <div id="logoutBtn"><i class="fas fa-power-off"></i></div>
         </div>
         <div id="map"></div>
@@ -126,8 +126,9 @@
 
         let currentUser = null, map, userMarker, watchId;
 
-        // --- SHOW APP CORE ---
+        // --- DASHBOARD LAUNCHER ---
         function launchDashboard(user) {
+            if(currentUser) return; // Prevent double trigger
             currentUser = user;
             document.getElementById('appLoader').style.display = 'none';
             document.getElementById('loginOverlay').style.display = 'none';
@@ -143,28 +144,30 @@
             }
         }
 
-        // --- AUTH LOGIC (LOOP BREAKER) ---
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                launchDashboard(user);
+        // --- AUTH SEQUENCE ---
+        // Step 1: Check if returning from Google
+        getRedirectResult(auth).then((result) => {
+            if (result?.user) {
+                launchDashboard(result.user);
             } else {
-                // Check if we are in the middle of a redirect
-                getRedirectResult(auth).then((result) => {
-                    if (result?.user) {
-                        launchDashboard(result.user);
+                // Step 2: Check for existing session
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        launchDashboard(user);
                     } else {
-                        // Truly logged out
                         document.getElementById('appLoader').style.display = 'none';
                         document.getElementById('loginOverlay').style.display = 'flex';
+                        document.getElementById('mainApp').style.display = 'none';
                     }
-                }).catch((e) => {
-                    console.error(e);
-                    document.getElementById('appLoader').style.display = 'none';
-                    document.getElementById('loginOverlay').style.display = 'flex';
                 });
             }
+        }).catch((error) => {
+            console.error("Auth Error:", error);
+            document.getElementById('appLoader').style.display = 'none';
+            document.getElementById('loginOverlay').style.display = 'flex';
         });
 
+        // --- BUTTON CLICKS ---
         document.getElementById('googleLoginBtn').addEventListener('click', () => {
             document.getElementById('loginOverlay').style.display = 'none';
             document.getElementById('appLoader').style.display = 'flex';
@@ -174,13 +177,13 @@
         });
 
         document.getElementById('logoutBtn').addEventListener('click', () => {
-            if(confirm("Logout?")) {
+            if(confirm("Logout from Sentinel?")) {
                 localStorage.clear();
                 signOut(auth).then(() => window.location.reload());
             }
         });
 
-        // --- TRACKING ---
+        // --- TRACKING ENGINE ---
         function startTracking() {
             if(!currentUser) return;
             const UID = currentUser.email.replace(/\./g, '_');
