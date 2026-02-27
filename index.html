@@ -25,41 +25,35 @@
             display: flex; justify-content: center; overflow: hidden;
         }
 
+        /* Initial Loader */
+        #appLoader {
+            position: fixed; inset: 0; background: var(--p-navy);
+            z-index: 20000; display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+        }
+
         #loginOverlay {
             position: fixed; inset: 0; background: var(--p-navy);
-            z-index: 10000; display: flex; flex-direction: column;
+            z-index: 10000; display: none; flex-direction: column;
             justify-content: center; align-items: center; text-align: center; padding: 20px;
         }
 
         .app-container { 
             width: 100%; max-width: 450px; height: 100dvh; 
             display: none; flex-direction: column; padding: 12px;
-            position: relative; gap: 8px; z-index: 5;
-        }
-        
-        @media (min-width: 768px) {
-            .app-container { height: 92vh; border: 1px solid var(--p-border); border-radius: 40px; margin-top: 4vh; background: rgba(10, 10, 15, 0.9); backdrop-filter: blur(20px); }
+            position: relative; gap: 8px;
         }
 
         .top-row { display: flex; justify-content: space-between; align-items: center; padding: 5px; }
         .battery-tag { font-size: 0.6rem; font-weight: 800; background: var(--p-glass); padding: 4px 12px; border-radius: 20px; border: 1px solid var(--p-border); color: var(--p-gold); }
         #logoutBtn { background: var(--p-glass); border: 1px solid var(--p-border); padding: 8px; border-radius: 10px; color: var(--p-red); cursor: pointer; }
 
-        .status-bar {
-            background: var(--p-glass); border: 1px solid var(--p-border); padding: 12px 15px;
-            border-radius: 18px; display: flex; align-items: center; gap: 12px;
-        }
-        .pulse-dot { width: 8px; height: 8px; background: #444; border-radius: 50%; }
-        .active .pulse-dot { background: var(--p-green); box-shadow: 0 0 10px var(--p-green); }
-
         #map { width: 100%; flex-grow: 1; border-radius: 22px; border: 1px solid var(--p-border); z-index: 1; min-height: 150px; }
 
-        .controls { display: flex; flex-direction: column; gap: 10px; padding-bottom: 5px; }
-        
         .sos-btn {
             width: 100%; padding: 18px; background: linear-gradient(135deg, #FF3B3B, #8b0000);
             border-radius: 20px; border: none; color: #fff; cursor: pointer;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            display: flex; flex-direction: column; align-items: center;
         }
         .sos-btn.active { background: #fff !important; color: var(--p-red) !important; }
         .sos-btn span { font-size: 1.4rem; font-weight: 900; }
@@ -70,15 +64,22 @@
             border-radius: 18px; color: #fff; font-size: 0.75rem; font-weight: 700;
             display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;
         }
+
+        .spinner { width: 40px; height: 40px; border: 4px solid var(--p-glass); border-top: 4px solid var(--p-gold); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
+    <div id="appLoader">
+        <div class="spinner"></div>
+        <p style="margin-top: 15px; font-size: 0.8rem; color: #666;">Verifying Session...</p>
+    </div>
+
     <div id="loginOverlay">
         <div style="font-size: 3rem; color: var(--p-gold); margin-bottom: 15px;"><i class="fas fa-shield-halved"></i></div>
         <h1 style="letter-spacing: 4px; font-weight: 800;">SENTINEL</h1>
-        <p id="loadingMsg" style="color: #666; margin-bottom: 30px; font-size: 0.9rem;">Initializing System...</p>
-        <button id="googleLoginBtn" style="background:#fff; color:#000; padding:18px 45px; border-radius:50px; font-weight:800; border:none; cursor:pointer;">
+        <button id="googleLoginBtn" style="background:#fff; color:#000; padding:18px 45px; border-radius:50px; font-weight:800; border:none; cursor:pointer; margin-top: 20px;">
             <i class="fab fa-google"></i> Sign in with Google
         </button>
     </div>
@@ -89,17 +90,13 @@
             <h2 id="userNameUI" style="font-size: 0.9rem; font-weight: 800;">SENTINEL</h2>
             <div id="logoutBtn"><i class="fas fa-power-off"></i></div>
         </div>
-        <div class="status-bar" id="mainStatus">
-            <div class="pulse-dot"></div>
-            <p id="statusText" style="font-weight: 700; color: #888; font-size: 0.8rem;">System Standby</p>
-        </div>
         <div id="map"></div>
         <div class="controls">
             <button class="sos-btn" id="sosBtn">
                 <span id="sosLabel">SOS</span>
                 <small style="font-weight:800; font-size: 0.5rem; opacity: 0.8;">TAP IN EMERGENCY</small>
             </button>
-            <div class="btn-grid">
+            <div class="btn-grid" style="margin-top: 10px;">
                 <div class="btn-action" id="trackBtn"><i class="fas fa-satellite-dish"></i><span id="trackLabel">Go Live</span></div>
                 <div class="btn-action" id="shareBtn"><i class="fas fa-share-nodes"></i><span>Share</span></div>
             </div>
@@ -129,62 +126,64 @@
 
         let currentUser = null, map, userMarker, watchId;
 
-        // --- THE "FIX" FUNCTIONS ---
-        function launchApp(user) {
+        // --- SHOW APP CORE ---
+        function launchDashboard(user) {
             currentUser = user;
+            document.getElementById('appLoader').style.display = 'none';
             document.getElementById('loginOverlay').style.display = 'none';
             document.getElementById('mainApp').style.display = 'flex';
             document.getElementById('userNameUI').innerText = "HI, " + user.displayName.split(' ')[0].toUpperCase();
             
-            // Map setup delay for smooth rendering
-            setTimeout(() => {
-                if(!map) {
-                    map = L.map('map', { zoomControl: false, attributionControl: false }).setView([30.2226, 78.7845], 15);
-                    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
-                    userMarker = L.circleMarker([30.2226, 78.7845], { radius: 8, color: '#fff', weight: 2, fillColor: '#FFB800', fillOpacity: 1 }).addTo(map);
-                }
+            if(!map) {
+                map = L.map('map', { zoomControl: false, attributionControl: false }).setView([30.2226, 78.7845], 15);
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+                userMarker = L.circleMarker([30.2226, 78.7845], { radius: 8, color: '#fff', weight: 2, fillColor: '#FFB800', fillOpacity: 1 }).addTo(map);
                 if (localStorage.getItem('sentinel_tracking')) startTracking();
                 initBattery();
-            }, 300);
+            }
         }
 
-        // --- AUTH ENGINE ---
+        // --- AUTH LOGIC (LOOP BREAKER) ---
         onAuthStateChanged(auth, (user) => {
-            if (user) launchApp(user);
-            else {
-                document.getElementById('loginOverlay').style.display = 'flex';
-                document.getElementById('mainApp').style.display = 'none';
+            if (user) {
+                launchDashboard(user);
+            } else {
+                // Check if we are in the middle of a redirect
+                getRedirectResult(auth).then((result) => {
+                    if (result?.user) {
+                        launchDashboard(result.user);
+                    } else {
+                        // Truly logged out
+                        document.getElementById('appLoader').style.display = 'none';
+                        document.getElementById('loginOverlay').style.display = 'flex';
+                    }
+                }).catch((e) => {
+                    console.error(e);
+                    document.getElementById('appLoader').style.display = 'none';
+                    document.getElementById('loginOverlay').style.display = 'flex';
+                });
             }
         });
 
-        // Handle Redirect on Load
-        getRedirectResult(auth).then((result) => {
-            if (result?.user) launchApp(result.user);
-        }).catch(e => {
-            console.error("Auth Error:", e);
-            document.getElementById('loadingMsg').innerText = "Authentication Failed. Try Again.";
-        });
-
         document.getElementById('googleLoginBtn').addEventListener('click', () => {
-            document.getElementById('loadingMsg').innerText = "Connecting to Google...";
+            document.getElementById('loginOverlay').style.display = 'none';
+            document.getElementById('appLoader').style.display = 'flex';
             setPersistence(auth, browserLocalPersistence).then(() => {
                 return signInWithRedirect(auth, provider);
             });
         });
 
         document.getElementById('logoutBtn').addEventListener('click', () => {
-            if(confirm("Logout from Sentinel?")) {
+            if(confirm("Logout?")) {
                 localStorage.clear();
                 signOut(auth).then(() => window.location.reload());
             }
         });
 
-        // --- TRACKING & UTILS ---
+        // --- TRACKING ---
         function startTracking() {
             if(!currentUser) return;
             const UID = currentUser.email.replace(/\./g, '_');
-            document.getElementById('mainStatus').classList.add('active');
-            document.getElementById('statusText').innerText = "RADAR: LIVE ACTIVE";
             document.getElementById('trackLabel').innerText = "Stop";
             watchId = navigator.geolocation.watchPosition((pos) => {
                 const { latitude, longitude } = pos.coords;
@@ -231,7 +230,6 @@
         });
 
         document.getElementById('shareBtn').addEventListener('click', () => {
-            if(!currentUser) return;
             const finalLink = `${window.location.origin}/track.html?id=${currentUser.email.replace(/\./g, '_')}`;
             navigator.clipboard.writeText(finalLink).then(() => alert("Link Copied!"));
         });
