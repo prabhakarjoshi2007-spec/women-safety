@@ -57,11 +57,11 @@
         .sync-tag { position: absolute; top: -10px; right: 30px; background: #000; border: 1px solid var(--border); padding: 4px 12px; border-radius: 10px; font-size: 0.6rem; color: var(--text-dim); }
     </style>
 </head>
-<body onclick="enableAudio()">
+<body>
 
     <div id="gatekeeper">
         <h1 style="margin-bottom: 15px; letter-spacing: 2px;">SENTINEL PORTAL</h1>
-        <p style="color: #666; margin-bottom: 30px; font-size: 0.9rem;">Tap to establish secure connection and enable audio alerts</p>
+        <p style="color: #666; margin-bottom: 30px; font-size: 0.9rem;">Tap to establish secure connection</p>
         <button class="monitor-btn" onclick="unlockPortal()">START MONITORING</button>
     </div>
 
@@ -75,14 +75,14 @@
         
         <div class="user-profile">
             <div class="u-info">
-                <div id="netStatusTag" class="status-tag tag-online">Initializing</div>
-                <h2 id="userName" style="margin-top: 5px;">Secure Track</h2>
+                <div id="netStatusTag" class="status-tag tag-online">Syncing</div>
+                <h2 id="userName" style="margin-top: 5px;">Secure Tracking</h2>
             </div>
             <div id="sosBadge" style="display:none; background: var(--sos); color: white; padding: 6px 14px; border-radius: 12px; font-size: 0.7rem; font-weight: 900;">SOS ACTIVE</div>
         </div>
 
         <div class="live-address-box">
-            <p id="addrText"><i class="fas fa-location-dot" style="margin-right: 8px; color: var(--accent);"></i>Connecting to live feed...</p>
+            <p id="addrText"><i class="fas fa-location-dot" style="margin-right: 8px; color: var(--accent);"></i>Locating Building Block...</p>
         </div>
 
         <div class="stats-grid">
@@ -92,7 +92,7 @@
             </div>
             <div class="stat-card">
                 <i class="fas fa-person-running"></i>
-                <div><span style="font-size: 0.6rem; color: #666; display: block;">Movement</span><h4 id="moveStatus">--</h4></div>
+                <div><span style="font-size: 0.6rem; color: #666; display: block;">Status</span><h4 id="moveStatus">--</h4></div>
             </div>
         </div>
 
@@ -121,6 +121,8 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
+        
+        // Is ID ko URL se uthayega: ?id=user_email_com
         const urlParams = new URLSearchParams(window.location.search);
         const USER_ID = urlParams.get('id') || "PRABHAKAR_001";
 
@@ -130,26 +132,22 @@
 
         const siren = document.getElementById('sirenAudio');
         let lastUpdateTime = Date.now();
-        let audioAllowed = false;
         let isUnlocked = false;
 
-        // Unlock Portal Logic
+        // Unlock Logic (Audio + View)
         window.unlockPortal = () => {
             isUnlocked = true;
-            audioAllowed = true;
             document.getElementById('gatekeeper').style.opacity = '0';
             setTimeout(() => { document.getElementById('gatekeeper').style.display = 'none'; }, 500);
-            siren.play().then(() => { siren.pause(); siren.currentTime = 0; }).catch(e => console.log("Audio Init Wait"));
+            siren.play().then(() => { siren.pause(); siren.currentTime = 0; });
         };
 
-        window.enableAudio = () => { if(isUnlocked) audioAllowed = true; };
-
-        // Network Watchdog
+        // Network Monitor
         setInterval(() => {
             if(!isUnlocked) return;
             const diff = (Date.now() - lastUpdateTime) / 1000;
             const tag = document.getElementById('netStatusTag');
-            if(diff > 45) {
+            if(diff > 35) {
                 tag.innerText = "Network Lost";
                 tag.className = "status-tag tag-offline";
             } else {
@@ -171,14 +169,14 @@
                 document.getElementById('moveStatus').innerText = (data.status || "Live");
                 document.getElementById('lastSync').innerText = "SYNC: " + new Date(data.last_updated).toLocaleTimeString();
 
-                const isDataFresh = (now - data.last_updated) < 900000; // 15 mins filter
+                const isFreshData = (now - data.last_updated) < 900000; // 15 mins filter
 
-                if(data.isSOS && isDataFresh) {
+                if(data.isSOS && isFreshData) {
                     document.getElementById('sosOverlay').style.display = 'block';
                     document.getElementById('sosBadge').style.display = 'block';
                     document.getElementById('sosAction').style.display = 'flex';
                     document.getElementById('resetSos').style.display = 'block';
-                    if(audioAllowed) siren.play().catch(e => {});
+                    siren.play().catch(e => {});
                 } else {
                     document.getElementById('sosOverlay').style.display = 'none';
                     document.getElementById('sosBadge').style.display = 'none';
@@ -191,7 +189,7 @@
         });
 
         window.resetSOSFromFamily = () => {
-            if(confirm("Mark user as safe? This will stop the siren immediately.")) {
+            if(confirm("Stop alarm and mark as safe?")) {
                 update(ref(db, 'live_safety/' + USER_ID), { isSOS: false });
             }
         };
